@@ -1,0 +1,1205 @@
+const startDateInput = document.getElementById("startDate");
+const endDateInput = document.getElementById("endDate");
+const exportTitleInput = document.getElementById("exportTitle");
+
+const generateBtn = document.getElementById("generateBtn");
+const addColumnBtn = document.getElementById("addColumnBtn");
+const exportPngBtn = document.getElementById("exportPngBtn");
+const copyBtn = document.getElementById("copyBtn");
+const resetBtn = document.getElementById("resetBtn");
+const saveTableBtn = document.getElementById("saveTableBtn");
+const myTablesBtn = document.getElementById("myTablesBtn");
+const resetWidthsBtn = document.getElementById("resetWidthsBtn");
+const suggestionsToggleBtn = document.getElementById("suggestionsToggleBtn");
+const themeToggleBtn = document.getElementById("themeToggleBtn");
+
+const showWeekdayToggle = document.getElementById("showWeekdayToggle");
+const showGregorianToggle = document.getElementById("showGregorianToggle");
+const showHijriToggle = document.getElementById("showHijriToggle");
+
+const tableColGroup = document.getElementById("tableColGroup");
+const tableHead = document.getElementById("tableHead");
+const tableBody = document.getElementById("tableBody");
+const statusBox = document.getElementById("status");
+const captureArea = document.getElementById("captureArea");
+const quickMenu = document.getElementById("quickMenu");
+const inlineSuggestionsToggle = document.getElementById("inlineSuggestionsToggle");
+const closeQuickMenuBtn = document.getElementById("closeQuickMenuBtn");
+const suggestionGroups = document.getElementById("suggestionGroups");
+const suggestionOptions = document.getElementById("suggestionOptions");
+const exportHeaderTitle = document.getElementById("exportHeaderTitle");
+
+const tablesModal = document.getElementById("tablesModal");
+const closeTablesModalBtn = document.getElementById("closeTablesModalBtn");
+const tableNameInput = document.getElementById("tableNameInput");
+const saveNamedTableBtn = document.getElementById("saveNamedTableBtn");
+const tablesList = document.getElementById("tablesList");
+
+const STORAGE_KEY = "jadwalak_v7";
+const SAVED_TABLES_KEY = "jadwalak_saved_tables_v1";
+const THEME_KEY = "jadwalak_theme_v1";
+const SUGGESTIONS_KEY = "jadwalak_suggestions_v1";
+
+const MIN_COLUMN_WIDTH = 55;
+const MAX_COLUMN_WIDTH = 420;
+
+let rows = [];
+let customColumns = [];
+let columnOrder = ["weekday", "gregorian", "hijri"];
+let columnWidths = {
+  weekday: 85,
+  gregorian: 105,
+  hijri: 115
+};
+
+let visibleBaseColumns = {
+  weekday: true,
+  gregorian: true,
+  hijri: true
+};
+
+const baseColumnMap = {
+  weekday: { id: "weekday", name: "اليوم", fixed: true },
+  gregorian: { id: "gregorian", name: "التاريخ الميلادي", fixed: true },
+  hijri: { id: "hijri", name: "التاريخ الهجري", fixed: true }
+};
+
+const arabicWeekdays = [
+  "الأحد",
+  "الاثنين",
+  "الثلاثاء",
+  "الأربعاء",
+  "الخميس",
+  "الجمعة",
+  "السبت"
+];
+
+
+const suggestionGroupsData = [
+  {
+    id: "basic",
+    name: "أساسية",
+    options: ["مذاكرة", "مراجعة", "اختبار", "بريك", "مهمة", "منجز", "مؤجل"]
+  },
+  {
+    id: "study",
+    name: "دراسة",
+    options: ["مراجعة نهائية", "حل نماذج", "تلخيص", "حفظ", "تدريب", "اختبار تجريبي", "واجب"]
+  },
+  {
+    id: "status",
+    name: "حالة",
+    options: ["قيد التنفيذ", "لم يبدأ", "يحتاج مراجعة", "مكتمل جزئيًا", "ملغي", "مؤكد"]
+  },
+  {
+    id: "organize",
+    name: "تنظيم",
+    options: ["راحة", "يوم خفيف", "يوم مكثف", "تعويض", "ترتيب ملاحظات", "تجهيز"]
+  },
+  {
+    id: "general",
+    name: "عام",
+    options: ["موعد", "اجتماع", "تسليم", "متابعة", "ملاحظة", "قراءة", "بحث"]
+  },
+  {
+    id: "priority",
+    name: "أولوية",
+    options: ["أولوية عالية", "أولوية متوسطة", "أولوية منخفضة", "عاجل", "غير عاجل"]
+  }
+];
+
+let activeSuggestionGroupId = "basic";
+
+
+function applyTheme(theme) {
+  const safeTheme = theme === "dark" ? "dark" : "light";
+  document.body.classList.toggle("dark", safeTheme === "dark");
+  themeToggleBtn.textContent = safeTheme === "dark" ? "☀️ لايت مود" : "🌙 دارك مود";
+  localStorage.setItem(THEME_KEY, safeTheme);
+}
+
+function getCurrentTheme() {
+  return document.body.classList.contains("dark") ? "dark" : "light";
+}
+
+function loadTheme() {
+  const savedTheme = localStorage.getItem(THEME_KEY);
+  if (savedTheme) {
+    applyTheme(savedTheme);
+    return;
+  }
+
+  const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  applyTheme(prefersDark ? "dark" : "light");
+}
+
+
+function suggestionsEnabled() {
+  return localStorage.getItem(SUGGESTIONS_KEY) !== "off";
+}
+
+function applySuggestionsState(enabled) {
+  const isEnabled = Boolean(enabled);
+  document.body.classList.toggle("suggestions-off", !isEnabled);
+  suggestionsToggleBtn.classList.toggle("off", !isEnabled);
+  suggestionsToggleBtn.textContent = isEnabled ? "الاقتراحات: مفعلة" : "الاقتراحات: مقفلة";
+  if (inlineSuggestionsToggle) {
+    inlineSuggestionsToggle.classList.toggle("off", !isEnabled);
+    inlineSuggestionsToggle.textContent = isEnabled ? "مفعلة" : "مغلقة";
+  }
+  localStorage.setItem(SUGGESTIONS_KEY, isEnabled ? "on" : "off");
+  renderSuggestionMenu();
+
+  if (!isEnabled) {
+    hideQuickMenu();
+  }
+}
+
+function setStatus(message) {
+  statusBox.textContent = message;
+  if (message) {
+    setTimeout(() => {
+      if (statusBox.textContent === message) statusBox.textContent = "";
+    }, 2600);
+  }
+}
+
+function toInputDate(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function parseLocalDate(value) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function addDays(date, days) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function formatGregorian(date) {
+  const day = date.getDate();
+  const month = new Intl.DateTimeFormat("ar-SA", { month: "long", calendar: "gregory" }).format(date);
+  return `${day} ${month}`;
+}
+
+function formatHijri(date) {
+  try {
+    const parts = new Intl.DateTimeFormat("ar-SA-u-ca-islamic-umalqura", {
+      day: "numeric",
+      month: "long"
+    }).formatToParts(date);
+
+    const day = parts.find(part => part.type === "day")?.value || "";
+    const month = parts.find(part => part.type === "month")?.value || "";
+    return `${day} ${month}`;
+  } catch (error) {
+    return "غير متاح";
+  }
+}
+
+function createDateRows(start, end) {
+  const generated = [];
+  let current = new Date(start);
+
+  while (current <= end) {
+    generated.push({
+      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
+      weekday: arabicWeekdays[current.getDay()],
+      gregorian: formatGregorian(current),
+      hijri: formatHijri(current),
+      values: {}
+    });
+
+    current = addDays(current, 1);
+  }
+
+  return generated;
+}
+
+function escapeHTML(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function getColumnById(columnId) {
+  if (baseColumnMap[columnId]) return baseColumnMap[columnId];
+  return customColumns.find(col => col.id === columnId);
+}
+
+function ensureColumnOrder() {
+  const allIds = ["weekday", "gregorian", "hijri", ...customColumns.map(col => col.id)];
+  const filtered = columnOrder.filter(id => allIds.includes(id));
+  const missing = allIds.filter(id => !filtered.includes(id));
+  columnOrder = [...filtered, ...missing];
+}
+
+function getVisibleColumns() {
+  ensureColumnOrder();
+
+  return columnOrder
+    .map(getColumnById)
+    .filter(Boolean)
+    .filter(col => {
+      if (col.fixed) return visibleBaseColumns[col.id] !== false;
+      return true;
+    });
+}
+
+function getColumnWidth(columnId) {
+  return Math.min(
+    MAX_COLUMN_WIDTH,
+    Math.max(MIN_COLUMN_WIDTH, Number(columnWidths[columnId]) || 130)
+  );
+}
+
+function renderColGroup() {
+  tableColGroup.innerHTML = "";
+
+  getVisibleColumns().forEach((col) => {
+    const colElement = document.createElement("col");
+    colElement.style.width = `${getColumnWidth(col.id)}px`;
+    tableColGroup.appendChild(colElement);
+  });
+}
+
+function createHeaderCell(col, visibleIndex) {
+  const th = document.createElement("th");
+  th.className = "resizable draggable-column";
+  th.dataset.colId = col.id;
+  th.dataset.visibleIndex = String(visibleIndex);
+  th.draggable = true;
+
+  const deleteButton = col.fixed
+    ? ""
+    : `<button class="delete-col" title="حذف العمود" data-delete-column-id="${col.id}">×</button>`;
+
+  th.innerHTML = `
+    <span class="column-title">
+      <span class="drag-grip" title="اسحب لترتيب العمود">⋮⋮</span>
+      ${deleteButton}
+      ${escapeHTML(col.name)}
+      <span class="width-hint">↔</span>
+    </span>
+    <span class="resize-handle" data-col-id="${col.id}"></span>
+  `;
+
+  return th;
+}
+
+function getCellValue(row, colId) {
+  if (colId === "weekday") return row.weekday;
+  if (colId === "gregorian") return row.gregorian;
+  if (colId === "hijri") return row.hijri;
+  return row.values?.[colId] || "";
+}
+
+
+function getCurrentTableState() {
+  return {
+    startDate: startDateInput.value,
+    endDate: endDateInput.value,
+    exportTitle: exportTitleInput.value,
+    rows,
+    customColumns,
+    columnOrder,
+    columnWidths,
+    visibleBaseColumns
+  };
+}
+
+function applyTableState(state) {
+  if (!state) return;
+
+  startDateInput.value = state.startDate || "";
+  endDateInput.value = state.endDate || "";
+  exportTitleInput.value = state.exportTitle || "جدول الاختبارات";
+
+  rows = Array.isArray(state.rows) ? state.rows : [];
+  customColumns = Array.isArray(state.customColumns) ? state.customColumns : [];
+  columnOrder = Array.isArray(state.columnOrder)
+    ? state.columnOrder
+    : ["weekday", "gregorian", "hijri", ...customColumns.map(col => col.id)];
+
+  columnWidths = state.columnWidths || { weekday: 85, gregorian: 105, hijri: 115 };
+  visibleBaseColumns = state.visibleBaseColumns || { weekday: true, gregorian: true, hijri: true };
+
+  syncToggleInputs();
+  renderTable();
+  saveState();
+}
+
+function getSavedTables() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SAVED_TABLES_KEY) || "[]");
+    return Array.isArray(saved) ? saved : [];
+  } catch {
+    return [];
+  }
+}
+
+function setSavedTables(tables) {
+  localStorage.setItem(SAVED_TABLES_KEY, JSON.stringify(tables));
+}
+
+function openTablesModal() {
+  tableNameInput.value = exportTitleInput.value.trim() || "جدول بدون اسم";
+  renderSavedTables();
+  tablesModal.classList.add("open");
+  tablesModal.setAttribute("aria-hidden", "false");
+  setTimeout(() => tableNameInput.focus(), 50);
+}
+
+function closeTablesModal() {
+  tablesModal.classList.remove("open");
+  tablesModal.setAttribute("aria-hidden", "true");
+}
+
+function formatSavedDate(isoDate) {
+  if (!isoDate) return "";
+  try {
+    return new Intl.DateTimeFormat("ar-SA", {
+      calendar: "gregory",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
+    }).format(new Date(isoDate));
+  } catch {
+    return isoDate;
+  }
+}
+
+function saveCurrentTableWithName(nameFromUser) {
+  const name = (nameFromUser || tableNameInput.value || exportTitleInput.value || "").trim();
+
+  if (!name) {
+    setStatus("اكتب اسم الجدول أولًا.");
+    return;
+  }
+
+  if (rows.length === 0) {
+    setStatus("لا يوجد جدول لحفظه.");
+    return;
+  }
+
+  const tables = getSavedTables();
+  const now = new Date().toISOString();
+  const existingIndex = tables.findIndex(table => table.name === name);
+
+  const payload = {
+    id: existingIndex >= 0 ? tables[existingIndex].id : (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
+    name,
+    updatedAt: now,
+    createdAt: existingIndex >= 0 ? tables[existingIndex].createdAt : now,
+    state: getCurrentTableState()
+  };
+
+  if (existingIndex >= 0) {
+    const replace = confirm(`يوجد جدول باسم "${name}". هل تريد استبداله؟`);
+    if (!replace) return;
+    tables[existingIndex] = payload;
+  } else {
+    tables.unshift(payload);
+  }
+
+  setSavedTables(tables);
+  exportTitleInput.value = name;
+  renderSavedTables();
+  saveState();
+  setStatus("تم حفظ الجدول.");
+}
+
+function renderSavedTables() {
+  const tables = getSavedTables();
+  tablesList.innerHTML = "";
+
+  if (tables.length === 0) {
+    tablesList.innerHTML = `<div class="empty-tables">لا توجد جداول محفوظة حتى الآن.<br>اكتب اسم الجدول ثم اضغط حفظ.</div>`;
+    return;
+  }
+
+  tables.forEach((table) => {
+    const item = document.createElement("div");
+    item.className = "table-item";
+    item.innerHTML = `
+      <div>
+        <div class="table-item-title">${escapeHTML(table.name)}</div>
+        <div class="table-item-meta">
+          آخر تحديث: ${escapeHTML(formatSavedDate(table.updatedAt))}<br>
+          عدد الأيام: ${escapeHTML(table.state?.rows?.length || 0)} — عدد الأعمدة المخصصة: ${escapeHTML(table.state?.customColumns?.length || 0)}
+        </div>
+      </div>
+      <div class="table-actions">
+        <button type="button" data-table-action="open" data-table-id="${escapeHTML(table.id)}">فتح</button>
+        <button type="button" data-table-action="duplicate" data-table-id="${escapeHTML(table.id)}">نسخ</button>
+        <button type="button" class="danger-action" data-table-action="delete" data-table-id="${escapeHTML(table.id)}">حذف</button>
+      </div>
+    `;
+    tablesList.appendChild(item);
+  });
+}
+
+function handleSavedTableAction(action, tableId) {
+  const tables = getSavedTables();
+  const table = tables.find(item => item.id === tableId);
+
+  if (!table) {
+    setStatus("لم يتم العثور على الجدول.");
+    renderSavedTables();
+    return;
+  }
+
+  if (action === "open") {
+    const proceed = rows.length === 0 || confirm("فتح هذا الجدول سيستبدل الجدول الحالي على الشاشة. هل تريد المتابعة؟");
+    if (!proceed) return;
+
+    applyTableState(table.state);
+    closeTablesModal();
+    setStatus(`تم فتح جدول: ${table.name}`);
+    return;
+  }
+
+  if (action === "duplicate") {
+    const now = new Date().toISOString();
+    const copy = {
+      ...table,
+      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+      name: `${table.name} - نسخة`,
+      createdAt: now,
+      updatedAt: now,
+      state: JSON.parse(JSON.stringify(table.state))
+    };
+
+    tables.unshift(copy);
+    setSavedTables(tables);
+    renderSavedTables();
+    setStatus("تم نسخ الجدول.");
+    return;
+  }
+
+  if (action === "delete") {
+    const proceed = confirm(`حذف جدول "${table.name}"؟`);
+    if (!proceed) return;
+
+    setSavedTables(tables.filter(item => item.id !== tableId));
+    renderSavedTables();
+    setStatus("تم حذف الجدول.");
+  }
+}
+
+
+function saveState() {
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify({
+      startDate: startDateInput.value,
+      endDate: endDateInput.value,
+      exportTitle: exportTitleInput.value,
+      rows,
+      customColumns,
+      columnOrder,
+      columnWidths,
+      visibleBaseColumns
+    })
+  );
+}
+
+function loadState() {
+  // Migrate from older versions if possible.
+  const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem("jadwalak_v1");
+  if (!saved) return false;
+
+  try {
+    const state = JSON.parse(saved);
+    startDateInput.value = state.startDate || "";
+    endDateInput.value = state.endDate || "";
+    exportTitleInput.value = state.exportTitle || "جدول الاختبارات";
+
+    rows = Array.isArray(state.rows) ? state.rows : [];
+    customColumns = Array.isArray(state.customColumns) ? state.customColumns : [];
+    columnOrder = Array.isArray(state.columnOrder)
+      ? state.columnOrder
+      : ["weekday", "gregorian", "hijri", ...customColumns.map(col => col.id)];
+
+    columnWidths = state.columnWidths || columnWidths;
+    visibleBaseColumns = state.visibleBaseColumns || visibleBaseColumns;
+
+    // v7 normalization.
+    if (columnWidths.weekday > 120) columnWidths.weekday = 85;
+    if (columnWidths.gregorian > 140) columnWidths.gregorian = 105;
+    if (columnWidths.hijri > 140) columnWidths.hijri = 115;
+
+    syncToggleInputs();
+    renderTable();
+    return rows.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+function syncToggleInputs() {
+  showWeekdayToggle.checked = visibleBaseColumns.weekday !== false;
+  showGregorianToggle.checked = visibleBaseColumns.gregorian !== false;
+  showHijriToggle.checked = visibleBaseColumns.hijri !== false;
+}
+
+function renderTable() {
+  exportHeaderTitle.textContent = exportTitleInput.value.trim() || "جدول الاختبارات";
+  renderColGroup();
+
+  const visibleColumns = getVisibleColumns();
+
+  tableHead.innerHTML = "";
+  visibleColumns.forEach((col, index) => {
+    tableHead.appendChild(createHeaderCell(col, index));
+  });
+
+  tableBody.innerHTML = "";
+
+  if (rows.length === 0) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = Math.max(1, visibleColumns.length);
+    td.className = "empty";
+    td.textContent = "اختر المدة من الأعلى ثم اضغط إنشاء الجدول.";
+    tr.appendChild(td);
+    tableBody.appendChild(tr);
+    return;
+  }
+
+  rows.forEach((row, rowIndex) => {
+    const tr = document.createElement("tr");
+
+    visibleColumns.forEach((col) => {
+      const td = document.createElement("td");
+      td.textContent = getCellValue(row, col.id);
+
+      if (!col.fixed) {
+        td.contentEditable = "true";
+        td.dataset.rowIndex = rowIndex;
+        td.dataset.colId = col.id;
+      }
+
+      tr.appendChild(td);
+    });
+
+    tableBody.appendChild(tr);
+  });
+
+}
+
+function resetDefaultWidths() {
+  columnWidths = {
+    weekday: 85,
+    gregorian: 105,
+    hijri: 115
+  };
+
+  customColumns.forEach(col => {
+    columnWidths[col.id] = 130;
+  });
+
+  renderTable();
+  saveState();
+  setStatus("تم ضبط عرض الأعمدة.");
+}
+
+generateBtn.addEventListener("click", () => {
+  if (!startDateInput.value || !endDateInput.value) {
+    setStatus("حدد تاريخ البداية والنهاية أولًا.");
+    return;
+  }
+
+  const start = parseLocalDate(startDateInput.value);
+  const end = parseLocalDate(endDateInput.value);
+
+  if (end < start) {
+    setStatus("تاريخ النهاية يجب أن يكون بعد تاريخ البداية.");
+    return;
+  }
+
+  const daysCount = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
+  if (daysCount > 370) {
+    setStatus("الحد الأعلى سنة واحدة حتى يبقى الجدول خفيفًا.");
+    return;
+  }
+
+  rows = createDateRows(start, end);
+  renderTable();
+  saveState();
+  setStatus("تم إنشاء الجدول بنجاح.");
+});
+
+addColumnBtn.addEventListener("click", () => {
+  const name = prompt("اكتب اسم العمود الجديد، مثل: الخطة، الملاحظات، الحالة");
+  if (!name || !name.trim()) return;
+
+  const column = {
+    id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
+    name: name.trim(),
+    fixed: false
+  };
+
+  customColumns.push(column);
+  columnOrder.push(column.id);
+  columnWidths[column.id] = 130;
+
+  rows = rows.map(row => ({
+    ...row,
+    values: {
+      ...(row.values || {}),
+      [column.id]: ""
+    }
+  }));
+
+  renderTable();
+  saveState();
+  setStatus(`تمت إضافة عمود: ${column.name}`);
+});
+
+tableHead.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-delete-column-id]");
+  if (!button) return;
+
+  const colId = button.dataset.deleteColumnId;
+  const column = customColumns.find(col => col.id === colId);
+  if (!column) return;
+
+  const confirmed = confirm(`حذف عمود "${column.name}"؟`);
+  if (!confirmed) return;
+
+  customColumns = customColumns.filter(col => col.id !== colId);
+  columnOrder = columnOrder.filter(id => id !== colId);
+  delete columnWidths[colId];
+
+  rows = rows.map(row => {
+    const values = { ...(row.values || {}) };
+    delete values[colId];
+    return { ...row, values };
+  });
+
+  renderTable();
+  saveState();
+  setStatus("تم حذف العمود.");
+});
+
+tableBody.addEventListener("input", (event) => {
+  const cell = event.target.closest("td[contenteditable='true']");
+  if (!cell) return;
+
+  const rowIndex = Number(cell.dataset.rowIndex);
+  const colId = cell.dataset.colId;
+
+  if (!rows[rowIndex]) return;
+
+  rows[rowIndex].values = rows[rowIndex].values || {};
+  rows[rowIndex].values[colId] = cell.textContent.trim();
+  saveState();
+});
+
+copyBtn.addEventListener("click", async () => {
+  if (rows.length === 0) {
+    setStatus("لا يوجد جدول لنسخه.");
+    return;
+  }
+
+  const visibleColumns = getVisibleColumns();
+  const headers = visibleColumns.map(col => col.name);
+  const lines = [headers.join("\t")];
+
+  rows.forEach(row => {
+    lines.push(visibleColumns.map(col => getCellValue(row, col.id)).join("\t"));
+  });
+
+  try {
+    await navigator.clipboard.writeText(lines.join("\n"));
+    setStatus("تم نسخ الجدول.");
+  } catch {
+    setStatus("تعذر النسخ تلقائيًا. جرّب تحديد الجدول يدويًا.");
+  }
+});
+
+
+saveTableBtn.addEventListener("click", () => {
+  openTablesModal();
+});
+
+myTablesBtn.addEventListener("click", () => {
+  openTablesModal();
+});
+
+saveNamedTableBtn.addEventListener("click", () => {
+  saveCurrentTableWithName();
+});
+
+tableNameInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    saveCurrentTableWithName();
+  }
+});
+
+closeTablesModalBtn.addEventListener("click", closeTablesModal);
+
+tablesModal.addEventListener("click", (event) => {
+  if (event.target === tablesModal) closeTablesModal();
+});
+
+tablesList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-table-action]");
+  if (!button) return;
+
+  handleSavedTableAction(button.dataset.tableAction, button.dataset.tableId);
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && tablesModal.classList.contains("open")) {
+    closeTablesModal();
+  }
+});
+
+
+resetBtn.addEventListener("click", () => {
+  const confirmed = confirm("هل تريد مسح الجدول وكل الأعمدة؟");
+  if (!confirmed) return;
+
+  rows = [];
+  customColumns = [];
+  columnOrder = ["weekday", "gregorian", "hijri"];
+  columnWidths = { weekday: 85, gregorian: 105, hijri: 115 };
+  visibleBaseColumns = { weekday: true, gregorian: true, hijri: true };
+  syncToggleInputs();
+
+  startDateInput.value = "";
+  endDateInput.value = "";
+  exportTitleInput.value = "جدول الاختبارات";
+
+  localStorage.removeItem(STORAGE_KEY);
+  renderTable();
+  setStatus("تم مسح الجدول.");
+});
+
+resetWidthsBtn.addEventListener("click", resetDefaultWidths);
+
+themeToggleBtn.addEventListener("click", () => {
+  applyTheme(getCurrentTheme() === "dark" ? "light" : "dark");
+});
+
+suggestionsToggleBtn.addEventListener("click", () => {
+  applySuggestionsState(!suggestionsEnabled());
+});
+
+[showWeekdayToggle, showGregorianToggle, showHijriToggle].forEach(toggle => {
+  toggle.addEventListener("change", () => {
+    visibleBaseColumns = {
+      weekday: showWeekdayToggle.checked,
+      gregorian: showGregorianToggle.checked,
+      hijri: showHijriToggle.checked
+    };
+
+    if (!visibleBaseColumns.weekday && !visibleBaseColumns.gregorian && !visibleBaseColumns.hijri && customColumns.length === 0) {
+      visibleBaseColumns.weekday = true;
+      showWeekdayToggle.checked = true;
+      setStatus("لا يمكن إخفاء كل الأعمدة بدون إضافة عمود مخصص.");
+    }
+
+    renderTable();
+    saveState();
+  });
+});
+
+exportTitleInput.addEventListener("input", () => {
+  exportHeaderTitle.textContent = exportTitleInput.value.trim() || "جدول الاختبارات";
+  saveState();
+});
+
+let resizeState = null;
+
+tableHead.addEventListener("pointerdown", (event) => {
+  const handle = event.target.closest(".resize-handle");
+  if (!handle) return;
+
+  event.preventDefault();
+
+  const colId = handle.dataset.colId;
+  if (!colId) return;
+
+  resizeState = {
+    colId,
+    startX: event.clientX,
+    startWidth: getColumnWidth(colId)
+  };
+
+  document.body.classList.add("resizing-columns");
+  handle.setPointerCapture(event.pointerId);
+});
+
+tableHead.addEventListener("pointermove", (event) => {
+  if (!resizeState) return;
+
+  const delta = resizeState.startX - event.clientX;
+  const nextWidth = Math.min(
+    MAX_COLUMN_WIDTH,
+    Math.max(MIN_COLUMN_WIDTH, resizeState.startWidth + delta)
+  );
+
+  columnWidths[resizeState.colId] = nextWidth;
+  renderColGroup();
+});
+
+tableHead.addEventListener("pointerup", () => {
+  if (!resizeState) return;
+  resizeState = null;
+  document.body.classList.remove("resizing-columns");
+  saveState();
+});
+
+tableHead.addEventListener("pointercancel", () => {
+  resizeState = null;
+  document.body.classList.remove("resizing-columns");
+});
+
+let draggedColumnId = null;
+
+tableHead.addEventListener("dragstart", (event) => {
+  const th = event.target.closest("th[data-col-id]");
+  if (!th || event.target.closest(".resize-handle") || event.target.closest(".delete-col")) {
+    event.preventDefault();
+    return;
+  }
+
+  draggedColumnId = th.dataset.colId;
+  event.dataTransfer.effectAllowed = "move";
+  event.dataTransfer.setData("text/plain", draggedColumnId);
+});
+
+tableHead.addEventListener("dragover", (event) => {
+  const th = event.target.closest("th[data-col-id]");
+  if (!th || !draggedColumnId) return;
+
+  event.preventDefault();
+  th.classList.add("drag-over");
+});
+
+tableHead.addEventListener("dragleave", (event) => {
+  const th = event.target.closest("th[data-col-id]");
+  if (th) th.classList.remove("drag-over");
+});
+
+tableHead.addEventListener("drop", (event) => {
+  const th = event.target.closest("th[data-col-id]");
+  if (!th || !draggedColumnId) return;
+
+  event.preventDefault();
+  th.classList.remove("drag-over");
+
+  const targetColumnId = th.dataset.colId;
+  if (targetColumnId === draggedColumnId) return;
+
+  ensureColumnOrder();
+  const fromIndex = columnOrder.indexOf(draggedColumnId);
+  const toIndex = columnOrder.indexOf(targetColumnId);
+
+  if (fromIndex === -1 || toIndex === -1) return;
+
+  const [moved] = columnOrder.splice(fromIndex, 1);
+  columnOrder.splice(toIndex, 0, moved);
+
+  draggedColumnId = null;
+  renderTable();
+  saveState();
+  setStatus("تم تغيير ترتيب الأعمدة.");
+});
+
+tableHead.addEventListener("dragend", () => {
+  draggedColumnId = null;
+  tableHead.querySelectorAll(".drag-over").forEach(el => el.classList.remove("drag-over"));
+});
+
+
+
+function renderSuggestionMenu() {
+  if (!suggestionGroups || !suggestionOptions) return;
+
+  const isEnabled = suggestionsEnabled();
+
+  suggestionGroups.innerHTML = "";
+  suggestionOptions.innerHTML = "";
+
+  if (!isEnabled) {
+    suggestionOptions.innerHTML = `<div class="quick-menu-disabled">الاقتراحات مغلقة.<br>فعّلها من الزر بالأعلى عند الحاجة.</div>`;
+    return;
+  }
+
+  suggestionGroupsData.forEach((group) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `group-btn ${group.id === activeSuggestionGroupId ? "active" : ""}`;
+    button.dataset.groupId = group.id;
+    button.textContent = group.name;
+    suggestionGroups.appendChild(button);
+  });
+
+  const activeGroup = suggestionGroupsData.find(group => group.id === activeSuggestionGroupId) || suggestionGroupsData[0];
+
+  activeGroup.options.forEach((option) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "option-btn";
+    button.dataset.preset = option;
+    button.textContent = option;
+    suggestionOptions.appendChild(button);
+  });
+}
+
+
+let activeEditableCell = null;
+
+function hideQuickMenu() {
+  quickMenu.classList.remove("open");
+  quickMenu.setAttribute("aria-hidden", "true");
+}
+
+function showQuickMenuForCell(cell) {
+  activeEditableCell = cell;
+  renderSuggestionMenu();
+
+  if (isMobileViewport()) {
+    quickMenu.style.top = "";
+    quickMenu.style.left = "";
+    quickMenu.style.right = "";
+    quickMenu.style.bottom = "";
+    quickMenu.classList.add("open");
+    quickMenu.setAttribute("aria-hidden", "false");
+    return;
+  }
+
+  const rect = cell.getBoundingClientRect();
+  const menuWidth = 390;
+  const menuHeight = 430;
+
+  const top = Math.max(8, Math.min(window.innerHeight - menuHeight - 8, rect.bottom + 6));
+  const left = Math.max(8, Math.min(window.innerWidth - menuWidth - 8, rect.left));
+
+  quickMenu.style.top = `${top}px`;
+  quickMenu.style.left = `${left}px`;
+  quickMenu.style.right = "auto";
+  quickMenu.style.bottom = "auto";
+  quickMenu.classList.add("open");
+  quickMenu.setAttribute("aria-hidden", "false");
+}
+
+tableBody.addEventListener("focusin", (event) => {
+  const cell = event.target.closest("td[contenteditable='true']");
+  if (!cell || !suggestionsEnabled()) return;
+  showQuickMenuForCell(cell);
+});
+
+tableBody.addEventListener("click", (event) => {
+  const cell = event.target.closest("td[contenteditable='true']");
+  if (!cell || !suggestionsEnabled()) return;
+  showQuickMenuForCell(cell);
+});
+
+quickMenu.addEventListener("mousedown", (event) => {
+  event.preventDefault();
+});
+
+quickMenu.addEventListener("click", (event) => {
+  const closeButton = event.target.closest("#closeQuickMenuBtn");
+  if (closeButton) {
+    hideQuickMenu();
+    return;
+  }
+
+  const toggle = event.target.closest("#inlineSuggestionsToggle");
+  if (toggle) {
+    applySuggestionsState(!suggestionsEnabled());
+    return;
+  }
+
+  const groupButton = event.target.closest("[data-group-id]");
+  if (groupButton) {
+    activeSuggestionGroupId = groupButton.dataset.groupId;
+    renderSuggestionMenu();
+    return;
+  }
+
+  const button = event.target.closest("[data-preset]");
+  if (!button || !activeEditableCell || !suggestionsEnabled()) return;
+
+  const preset = button.dataset.preset;
+  activeEditableCell.textContent = preset;
+
+  const rowIndex = Number(activeEditableCell.dataset.rowIndex);
+  const colId = activeEditableCell.dataset.colId;
+
+  if (rows[rowIndex]) {
+    rows[rowIndex].values = rows[rowIndex].values || {};
+    rows[rowIndex].values[colId] = preset;
+    saveState();
+  }
+
+  hideQuickMenu();
+  activeEditableCell.focus();
+});
+
+document.addEventListener("click", (event) => {
+  if (event.target.closest("#quickMenu")) return;
+  if (event.target.closest("td[contenteditable='true']")) return;
+  hideQuickMenu();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") hideQuickMenu();
+});
+
+window.addEventListener("scroll", () => {
+  if (!isMobileViewport()) hideQuickMenu();
+}, true);
+window.addEventListener("resize", hideQuickMenu);
+
+
+function isMobileViewport() {
+  return window.matchMedia && window.matchMedia("(max-width: 760px)").matches;
+}
+
+function buildExportClone() {
+  const visibleColumns = getVisibleColumns();
+  const theme = getCurrentTheme();
+  const columnCount = Math.max(visibleColumns.length, 1);
+
+  // عرض ثابت مخصص للتصدير حتى لا يقص الجدول في الجوال.
+  // كلما زادت الأعمدة زاد العرض، لكن لا يقل عن 900px.
+  const exportWidth = Math.max(900, columnCount * 170);
+
+  const wrapper = document.createElement("div");
+  wrapper.className = `export-sheet ${theme === "dark" ? "dark-export" : "light-export"}`;
+  wrapper.style.width = `${exportWidth}px`;
+  wrapper.style.direction = "rtl";
+  wrapper.style.fontFamily = "Tahoma, Arial, sans-serif";
+
+  const header = document.createElement("div");
+  header.className = "export-header";
+  header.innerHTML = `<h3>${escapeHTML(exportTitleInput.value.trim() || "جدول الاختبارات")}</h3>`;
+  wrapper.appendChild(header);
+
+  const table = document.createElement("table");
+
+  const colgroup = document.createElement("colgroup");
+  visibleColumns.forEach((col) => {
+    const colEl = document.createElement("col");
+    const baseWidth = col.fixed ? 150 : 190;
+    colEl.style.width = `${Math.max(baseWidth, getColumnWidth(col.id))}px`;
+    colgroup.appendChild(colEl);
+  });
+  table.appendChild(colgroup);
+
+  const thead = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  visibleColumns.forEach((col) => {
+    const th = document.createElement("th");
+    th.textContent = col.name;
+    headRow.appendChild(th);
+  });
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  rows.forEach((row) => {
+    const tr = document.createElement("tr");
+    visibleColumns.forEach((col) => {
+      const td = document.createElement("td");
+      td.textContent = getCellValue(row, col.id);
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  wrapper.appendChild(table);
+
+  const footer = document.createElement("div");
+  footer.className = "export-footer";
+  footer.textContent = "Made with omar al ghrman";
+  wrapper.appendChild(footer);
+
+  const holder = document.createElement("div");
+  holder.className = "export-only-area";
+  holder.appendChild(wrapper);
+  document.body.appendChild(holder);
+
+  return { holder, wrapper, exportWidth };
+}
+
+async function exportTableAsPng() {
+  const { holder, wrapper, exportWidth } = buildExportClone();
+  const theme = getCurrentTheme();
+
+  try {
+    // ننتظر فريم واحد حتى يأخذ المتصفح القياسات الصحيحة للنسخة المخفية.
+    await new Promise(resolve => requestAnimationFrame(resolve));
+
+    const canvas = await html2canvas(wrapper, {
+      backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff",
+      scale: isMobileViewport() ? 2 : 2,
+      useCORS: true,
+      logging: false,
+      scrollX: 0,
+      scrollY: 0,
+      width: exportWidth,
+      windowWidth: exportWidth,
+      windowHeight: wrapper.scrollHeight
+    });
+
+    const link = document.createElement("a");
+    link.download = "jadwalak-table.png";
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+
+    setStatus("تم تصدير الصورة بنجاح.");
+  } finally {
+    holder.remove();
+  }
+}
+
+
+exportPngBtn.addEventListener("click", async () => {
+  if (rows.length === 0) {
+    setStatus("لا يوجد جدول لتصديره.");
+    return;
+  }
+
+  if (typeof html2canvas === "undefined") {
+    setStatus("تصدير الصورة يحتاج اتصالًا بالإنترنت لتحميل مكتبة html2canvas.");
+    return;
+  }
+
+  try {
+    setStatus("جاري تجهيز الصورة...");
+    await exportTableAsPng();
+  } catch (error) {
+    console.error(error);
+    setStatus("تعذر تصدير الصورة. جرّب تشغيل الموقع عبر GitHub Pages بدل فتح الملف مباشرة.");
+  }
+});
+
+(function initDefaults() {
+  loadTheme();
+  applySuggestionsState(suggestionsEnabled());
+  const loaded = loadState();
+  if (!loaded) {
+    const today = new Date();
+    startDateInput.value = toInputDate(today);
+    endDateInput.value = toInputDate(addDays(today, 14));
+    exportTitleInput.value = "جدول الاختبارات";
+    syncToggleInputs();
+    renderTable();
+  }
+})();
