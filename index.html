@@ -15,41 +15,60 @@
         <p class="subtitle">
           أنشئ جدولًا زمنيًا نظيفًا خلال ثوانٍ: حدد المدة، أضف الأعمدة التي تحتاجها، ثم صدّر النتيجة كصورة جاهزة للمشاركة.
         </p>
+
+        <div class="hero-actions">
+          <button id="changeUserBtn" class="btn user-btn" type="button">تغيير الاسم</button>
+          <button id="themeToggleBtn" class="btn theme-btn top-theme-btn" type="button">🌙 دارك مود</button>
+        </div>
       </div>
 </section>
 
-    <section class="controls">
-      <div class="field title-field">
-        <label for="exportTitle">عنوان الصورة</label>
-        <input id="exportTitle" type="text" value="جدول الاختبارات" placeholder="مثال: جدول الاختبارات" />
+    <section class="controls grouped-controls">
+      <div class="controls-group setup-group">
+        <div class="group-title">إعداد الجدول</div>
+
+        <div class="field title-field">
+          <label for="exportTitle">عنوان الصورة</label>
+          <input id="exportTitle" type="text" value="جدول الاختبارات" placeholder="مثال: جدول الاختبارات" />
+        </div>
+
+        <div class="field">
+          <label for="startDate">تاريخ البداية</label>
+          <input id="startDate" type="date" />
+        </div>
+
+        <div class="field">
+          <label for="endDate">تاريخ النهاية</label>
+          <input id="endDate" type="date" />
+        </div>
+
+        <div class="toggles" aria-label="إعدادات عرض الأعمدة الأساسية">
+          <label class="check"><input id="showWeekdayToggle" type="checkbox" checked /> اليوم</label>
+          <label class="check"><input id="showGregorianToggle" type="checkbox" checked /> الميلادي</label>
+          <label class="check"><input id="showHijriToggle" type="checkbox" checked /> الهجري</label>
+        </div>
+
+        <button id="generateBtn" class="btn primary">إنشاء الجدول</button>
       </div>
 
-      <div class="field">
-        <label for="startDate">تاريخ البداية</label>
-        <input id="startDate" type="date" />
+      <div class="controls-group edit-group">
+        <div class="group-title">التحرير</div>
+
+        <button id="addColumnBtn" class="btn">+ إضافة عمود</button>
+        <button id="rangeFillBtn" class="btn primary-soft" type="button">تعبئة نطاق</button>
+        <button id="suggestionsToggleBtn" class="btn active-toggle" type="button">الاقتراحات: مفعلة</button>
+        <button id="resetWidthsBtn" class="btn" type="button">ضبط عرض الأعمدة</button>
       </div>
 
-      <div class="field">
-        <label for="endDate">تاريخ النهاية</label>
-        <input id="endDate" type="date" />
-      </div>
+      <div class="controls-group output-group">
+        <div class="group-title">الحفظ والإخراج</div>
 
-      <div class="toggles" aria-label="إعدادات عرض الأعمدة الأساسية">
-        <label class="check"><input id="showWeekdayToggle" type="checkbox" checked /> اليوم</label>
-        <label class="check"><input id="showGregorianToggle" type="checkbox" checked /> الميلادي</label>
-        <label class="check"><input id="showHijriToggle" type="checkbox" checked /> الهجري</label>
+        <button id="copyBtn" class="btn">نسخ الجدول</button>
+        <button id="exportPngBtn" class="btn">تصدير صورة PNG</button>
+        <button id="saveTableBtn" class="btn primary-soft" type="button">حفظ الجدول</button>
+        <button id="myTablesBtn" class="btn" type="button">جداولي</button>
+        <button id="resetBtn" class="btn danger">مسح الكل</button>
       </div>
-
-      <button id="generateBtn" class="btn primary">إنشاء الجدول</button>
-      <button id="themeToggleBtn" class="btn theme-btn" type="button">🌙 دارك مود</button>
-      <button id="addColumnBtn" class="btn">+ إضافة عمود</button>
-      <button id="suggestionsToggleBtn" class="btn active-toggle" type="button">الاقتراحات: مفعلة</button>
-      <button id="resetWidthsBtn" class="btn" type="button">ضبط عرض الأعمدة</button>
-      <button id="exportPngBtn" class="btn">تصدير صورة PNG</button>
-      <button id="copyBtn" class="btn">نسخ الجدول</button>
-      <button id="saveTableBtn" class="btn primary-soft" type="button">حفظ الجدول</button>
-      <button id="myTablesBtn" class="btn" type="button">جداولي</button>
-      <button id="resetBtn" class="btn danger">مسح الكل</button>
     </section>
 
     <section id="status" class="status" aria-live="polite"></section>
@@ -86,6 +105,49 @@
         <div id="exportFooter" class="export-footer">Made with omar al ghrman</div>
       </div>
     </section>
+
+    <div id="rangeFillModal" class="modal-backdrop" aria-hidden="true">
+      <section class="modal-card range-card" role="dialog" aria-modal="true" aria-labelledby="rangeFillTitle">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow mini">تعبئة سريعة</p>
+            <h3 id="rangeFillTitle">تعبئة نطاق</h3>
+          </div>
+          <button id="closeRangeFillBtn" class="icon-btn" type="button" aria-label="إغلاق">×</button>
+        </div>
+
+        <div class="range-panel">
+          <div class="range-grid">
+            <div class="field">
+              <label for="rangeStartSelect">من تاريخ</label>
+              <select id="rangeStartSelect"></select>
+            </div>
+
+            <div class="field">
+              <label for="rangeEndSelect">إلى تاريخ</label>
+              <select id="rangeEndSelect"></select>
+            </div>
+
+            <div class="field">
+              <label for="rangeColumnSelect">العمود</label>
+              <select id="rangeColumnSelect"></select>
+            </div>
+
+            <div class="field range-text-field">
+              <label for="rangeTextInput">النص</label>
+              <input id="rangeTextInput" type="text" placeholder="مثال: مذاكرة غير ربحية" />
+            </div>
+          </div>
+
+          <div class="range-actions">
+            <button id="applyRangeFillBtn" class="btn primary" type="button">تطبيق</button>
+            <button id="clearRangeFillBtn" class="btn danger" type="button">مسح النطاق</button>
+          </div>
+
+          <p class="range-note">يتم تطبيق النص على العمود المختار داخل الفترة المحددة فقط.</p>
+        </div>
+      </section>
+    </div>
 
     <div id="visitorModal" class="modal-backdrop visitor-backdrop" aria-hidden="true">
       <section class="modal-card visitor-card" role="dialog" aria-modal="true" aria-labelledby="visitorModalTitle">

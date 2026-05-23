@@ -1415,3 +1415,248 @@ body.suggestions-off .quick-menu {
     padding: 22px;
   }
 }
+
+
+/* v14: range fill + user change */
+select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 14px;
+  font: inherit;
+  color: var(--text);
+  background: var(--input-bg);
+  outline: none;
+}
+
+body.dark select {
+  color-scheme: dark;
+}
+
+.range-card {
+  width: min(720px, 100%);
+}
+
+.range-panel {
+  padding: 18px 22px 22px;
+}
+
+.range-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.range-text-field {
+  grid-column: 1 / -1;
+}
+
+.range-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.range-note {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-weight: 800;
+  line-height: 1.8;
+}
+
+@media (max-width: 680px) {
+  .range-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .range-actions .btn {
+    flex: 1 1 100%;
+  }
+}
+
+
+/* v15-fixed: safe layout patch */
+.hero-actions {
+  margin-top: 18px;
+  display: flex;
+  justify-content: flex-start;
+  gap: 10px;
+}
+
+.user-btn {
+  border-color: rgba(125, 211, 252, 0.32);
+  background: rgba(125, 211, 252, 0.10);
+  color: var(--brand);
+}
+
+.controls {
+  align-items: stretch !important;
+}
+
+.controls .field {
+  order: 1;
+}
+
+.controls .toggles {
+  order: 2;
+}
+
+#generateBtn {
+  order: 3;
+}
+
+#themeToggleBtn,
+#addColumnBtn,
+#rangeFillBtn,
+#suggestionsToggleBtn,
+#resetWidthsBtn {
+  order: 4;
+}
+
+#copyBtn,
+#exportPngBtn,
+#saveTableBtn,
+#myTablesBtn {
+  order: 5;
+}
+
+#resetBtn {
+  order: 6;
+}
+
+@media (max-width: 760px) {
+  .hero-actions {
+    justify-content: stretch;
+  }
+
+  .hero-actions .btn {
+    width: 100%;
+  }
+
+  .controls .btn,
+  .controls .field,
+  .controls .toggles {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+}
+
+
+/* v16: ordered grouped controls */
+.grouped-controls {
+  display: grid !important;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  align-items: stretch !important;
+  padding: 16px;
+}
+
+.controls-group {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  padding: 18px 14px 14px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.group-title {
+  position: absolute;
+  top: -11px;
+  right: 16px;
+  padding: 2px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card-solid);
+  color: var(--brand);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.grouped-controls .field {
+  flex: 1 1 185px;
+  min-width: 170px;
+}
+
+.grouped-controls .title-field {
+  flex: 1.5 1 250px;
+}
+
+.grouped-controls .toggles {
+  flex: 0 1 auto;
+}
+
+.grouped-controls .btn {
+  flex: 0 0 auto;
+}
+
+.setup-group {
+  border-color: rgba(125, 211, 252, 0.22);
+}
+
+.edit-group {
+  border-color: rgba(37, 99, 235, 0.24);
+}
+
+.output-group {
+  border-style: dashed;
+  border-color: rgba(148, 163, 184, 0.38);
+}
+
+@media (max-width: 760px) {
+  .grouped-controls {
+    padding: 12px;
+    gap: 16px;
+  }
+
+  .controls-group {
+    display: grid;
+    grid-template-columns: 1fr;
+    padding: 20px 12px 12px;
+  }
+
+  .grouped-controls .field,
+  .grouped-controls .title-field,
+  .grouped-controls .toggles,
+  .grouped-controls .btn {
+    width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .toggles {
+    justify-content: center;
+  }
+}
+
+
+/* v17: theme button beside change user */
+.hero-actions {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.top-theme-btn {
+  border-color: rgba(37, 99, 235, 0.32);
+  background: rgba(37, 99, 235, 0.10);
+}
+
+@media (max-width: 760px) {
+  .hero-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .hero-actions .btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .hero-actions {
+    grid-template-columns: 1fr;
+  }
+}

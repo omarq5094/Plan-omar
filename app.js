@@ -9,6 +9,8 @@ const copyBtn = document.getElementById("copyBtn");
 const resetBtn = document.getElementById("resetBtn");
 const saveTableBtn = document.getElementById("saveTableBtn");
 const myTablesBtn = document.getElementById("myTablesBtn");
+const rangeFillBtn = document.getElementById("rangeFillBtn");
+const changeUserBtn = document.getElementById("changeUserBtn");
 const resetWidthsBtn = document.getElementById("resetWidthsBtn");
 const suggestionsToggleBtn = document.getElementById("suggestionsToggleBtn");
 const themeToggleBtn = document.getElementById("themeToggleBtn");
@@ -40,6 +42,15 @@ const visitorNameInput = document.getElementById("visitorNameInput");
 const visitorSubmitBtn = document.getElementById("visitorSubmitBtn");
 const visitorStatus = document.getElementById("visitorStatus");
 
+const rangeFillModal = document.getElementById("rangeFillModal");
+const closeRangeFillBtn = document.getElementById("closeRangeFillBtn");
+const rangeStartSelect = document.getElementById("rangeStartSelect");
+const rangeEndSelect = document.getElementById("rangeEndSelect");
+const rangeColumnSelect = document.getElementById("rangeColumnSelect");
+const rangeTextInput = document.getElementById("rangeTextInput");
+const applyRangeFillBtn = document.getElementById("applyRangeFillBtn");
+const clearRangeFillBtn = document.getElementById("clearRangeFillBtn");
+
 const STORAGE_KEY = "jadwalak_v7";
 const SAVED_TABLES_KEY = "jadwalak_saved_tables_v1";
 const VISITOR_NAME_KEY = "jadwalak_visitor_name_v1";
@@ -47,6 +58,7 @@ const VISITOR_ID_KEY = "jadwalak_visitor_id_v1";
 const VISITOR_FIRST_LOGGED_KEY = "jadwalak_visitor_first_logged_v1";
 const VISITOR_LAST_LOGGED_KEY = "jadwalak_visitor_last_logged_v1";
 const GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzxtPBGvhWhS7yDWdbVNq21HzeBKCX4n0hC2FzpEhV06onol3osnz0_-vZhykLDr4jZ6w/exec";
+const RETURN_VISIT_LOG_INTERVAL_MS = 30 * 60 * 1000;
 const THEME_KEY = "jadwalak_theme_v1";
 const SUGGESTIONS_KEY = "jadwalak_suggestions_v1";
 
@@ -408,6 +420,16 @@ async function initializeVisitorTracking() {
 
   if (!name || !firstLogged) {
     openVisitorModal();
+    return;
+  }
+
+  const lastLoggedAt = localStorage.getItem(VISITOR_LAST_LOGGED_KEY);
+  const lastTime = lastLoggedAt ? new Date(lastLoggedAt).getTime() : 0;
+  const now = Date.now();
+
+  // حماية بسيطة من السبام:
+  // لا نسجل return_visit أكثر من مرة خلال 30 دقيقة لنفس الجهاز.
+  if (lastTime && now - lastTime < RETURN_VISIT_LOG_INTERVAL_MS) {
     return;
   }
 
@@ -848,6 +870,130 @@ copyBtn.addEventListener("click", async () => {
 
 
 
+
+function openRangeFillModal() {
+  if (rows.length === 0) {
+    setStatus("أنشئ الجدول أولًا قبل تعبئة النطاق.");
+    return;
+  }
+
+  const editableColumns = customColumns.slice();
+
+  if (editableColumns.length === 0) {
+    setStatus("أضف عمودًا مثل الخطة أولًا.");
+    return;
+  }
+
+  rangeStartSelect.innerHTML = "";
+  rangeEndSelect.innerHTML = "";
+  rangeColumnSelect.innerHTML = "";
+
+  rows.forEach((row, index) => {
+    const label = `${row.gregorian} — ${row.weekday}`;
+    const startOption = new Option(label, String(index));
+    const endOption = new Option(label, String(index));
+    rangeStartSelect.add(startOption);
+    rangeEndSelect.add(endOption);
+  });
+
+  rangeEndSelect.value = String(rows.length - 1);
+
+  editableColumns.forEach((col) => {
+    rangeColumnSelect.add(new Option(col.name, col.id));
+  });
+
+  rangeTextInput.value = "";
+  rangeFillModal.classList.add("open");
+  rangeFillModal.setAttribute("aria-hidden", "false");
+  setTimeout(() => rangeTextInput.focus(), 80);
+}
+
+function closeRangeFillModal() {
+  rangeFillModal.classList.remove("open");
+  rangeFillModal.setAttribute("aria-hidden", "true");
+}
+
+function applyRangeFill({ clear = false } = {}) {
+  if (rows.length === 0) return;
+
+  const startIndex = Number(rangeStartSelect.value);
+  const endIndex = Number(rangeEndSelect.value);
+  const colId = rangeColumnSelect.value;
+  const text = clear ? "" : rangeTextInput.value.trim();
+
+  if (!colId) {
+    setStatus("اختر العمود أولًا.");
+    return;
+  }
+
+  if (!clear && !text) {
+    setStatus("اكتب النص الذي تريد تعبئته.");
+    return;
+  }
+
+  const from = Math.min(startIndex, endIndex);
+  const to = Math.max(startIndex, endIndex);
+
+  for (let i = from; i <= to; i++) {
+    rows[i].values = rows[i].values || {};
+    rows[i].values[colId] = text;
+  }
+
+  renderTable();
+  saveState();
+  closeRangeFillModal();
+
+  const actionText = clear ? "تم مسح النطاق." : "تمت تعبئة النطاق.";
+  setStatus(actionText);
+}
+
+async function changeVisitorName() {
+  const currentName = localStorage.getItem(VISITOR_NAME_KEY) || "";
+  const newName = prompt("اكتب الاسم الجديد:", currentName);
+
+  if (newName === null) return;
+
+  const cleanName = newName.trim();
+  if (!cleanName) {
+    setStatus("لم يتم تغيير الاسم؛ الاسم فارغ.");
+    return;
+  }
+
+  const oldName = currentName;
+  localStorage.setItem(VISITOR_NAME_KEY, cleanName);
+  localStorage.setItem(VISITOR_FIRST_LOGGED_KEY, "1");
+
+  try {
+    await logVisitorEvent(cleanName, oldName && oldName !== cleanName ? "name_change" : "new_user");
+    localStorage.setItem(VISITOR_LAST_LOGGED_KEY, new Date().toISOString());
+    setStatus(`تم تغيير الاسم إلى ${cleanName}.`);
+  } catch (error) {
+    console.warn("Name change log failed", error);
+    setStatus(`تم تغيير الاسم إلى ${cleanName}، لكن لم يتم تسجيله في Google Sheets.`);
+  }
+}
+
+
+
+rangeFillBtn.addEventListener("click", openRangeFillModal);
+closeRangeFillBtn.addEventListener("click", closeRangeFillModal);
+
+rangeFillModal.addEventListener("click", (event) => {
+  if (event.target === rangeFillModal) closeRangeFillModal();
+});
+
+applyRangeFillBtn.addEventListener("click", () => applyRangeFill({ clear: false }));
+clearRangeFillBtn.addEventListener("click", () => applyRangeFill({ clear: true }));
+
+rangeTextInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    applyRangeFill({ clear: false });
+  }
+});
+
+changeUserBtn.addEventListener("click", changeVisitorName);
+
+
 visitorSubmitBtn.addEventListener("click", submitVisitorName);
 
 visitorNameInput.addEventListener("keydown", (event) => {
@@ -889,8 +1035,14 @@ tablesList.addEventListener("click", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && tablesModal.classList.contains("open")) {
+  if (event.key !== "Escape") return;
+
+  if (tablesModal.classList.contains("open")) {
     closeTablesModal();
+  }
+
+  if (rangeFillModal.classList.contains("open")) {
+    closeRangeFillModal();
   }
 });
 
