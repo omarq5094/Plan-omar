@@ -1363,3 +1363,55 @@ body.suggestions-off .quick-menu {
     min-height: 42px;
   }
 }
+
+
+/* v13: first visit name modal + Google Sheets visitor log */
+.visitor-backdrop {
+  z-index: 13000;
+}
+
+.visitor-card {
+  width: min(480px, 100%);
+  max-height: none;
+  grid-template-rows: 1fr;
+}
+
+.visitor-content {
+  padding: 28px;
+  text-align: center;
+}
+
+.visitor-content h3 {
+  margin: 8px 0 10px;
+  color: var(--brand);
+  font-size: 34px;
+}
+
+.visitor-text {
+  color: var(--muted);
+  line-height: 1.9;
+  margin-bottom: 18px;
+}
+
+.visitor-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+}
+
+.visitor-status {
+  min-height: 24px;
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+@media (max-width: 540px) {
+  .visitor-form {
+    grid-template-columns: 1fr;
+  }
+
+  .visitor-content {
+    padding: 22px;
+  }
+}

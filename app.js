@@ -35,8 +35,18 @@ const tableNameInput = document.getElementById("tableNameInput");
 const saveNamedTableBtn = document.getElementById("saveNamedTableBtn");
 const tablesList = document.getElementById("tablesList");
 
+const visitorModal = document.getElementById("visitorModal");
+const visitorNameInput = document.getElementById("visitorNameInput");
+const visitorSubmitBtn = document.getElementById("visitorSubmitBtn");
+const visitorStatus = document.getElementById("visitorStatus");
+
 const STORAGE_KEY = "jadwalak_v7";
 const SAVED_TABLES_KEY = "jadwalak_saved_tables_v1";
+const VISITOR_NAME_KEY = "jadwalak_visitor_name_v1";
+const VISITOR_ID_KEY = "jadwalak_visitor_id_v1";
+const VISITOR_FIRST_LOGGED_KEY = "jadwalak_visitor_first_logged_v1";
+const VISITOR_LAST_LOGGED_KEY = "jadwalak_visitor_last_logged_v1";
+const GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzxtPBGvhWhS7yDWdbVNq21HzeBKCX4n0hC2FzpEhV06onol3osnz0_-vZhykLDr4jZ6w/exec";
 const THEME_KEY = "jadwalak_theme_v1";
 const SUGGESTIONS_KEY = "jadwalak_suggestions_v1";
 
@@ -298,6 +308,115 @@ function getCellValue(row, colId) {
   if (colId === "gregorian") return row.gregorian;
   if (colId === "hijri") return row.hijri;
   return row.values?.[colId] || "";
+}
+
+
+
+function getOrCreateVisitorId() {
+  let visitorId = localStorage.getItem(VISITOR_ID_KEY);
+  if (!visitorId) {
+    visitorId = crypto.randomUUID ? crypto.randomUUID() : `visitor_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    localStorage.setItem(VISITOR_ID_KEY, visitorId);
+  }
+  return visitorId;
+}
+
+function getDeviceInfo() {
+  const ua = navigator.userAgent || "";
+  const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+  const browser = (() => {
+    if (/Edg/i.test(ua)) return "Edge";
+    if (/Chrome/i.test(ua)) return "Chrome";
+    if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) return "Safari";
+    if (/Firefox/i.test(ua)) return "Firefox";
+    return "Browser";
+  })();
+
+  return `${browser} / ${isMobile ? "Mobile" : "Desktop"} / ${ua}`;
+}
+
+async function logVisitorEvent(name, eventType) {
+  if (!GOOGLE_SHEET_WEB_APP_URL) return false;
+
+  const payload = {
+    name,
+    eventType,
+    userAgent: getDeviceInfo()
+  };
+
+  // نستخدم no-cors لأن Google Apps Script أحيانًا لا يرجع CORS مناسب.
+  // حتى لو لم نقرأ الرد، الطلب يصل إلى الشيت.
+  await fetch(GOOGLE_SHEET_WEB_APP_URL, {
+    method: "POST",
+    mode: "no-cors",
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  return true;
+}
+
+function openVisitorModal() {
+  visitorModal.classList.add("open");
+  visitorModal.setAttribute("aria-hidden", "false");
+  setTimeout(() => visitorNameInput.focus(), 80);
+}
+
+function closeVisitorModal() {
+  visitorModal.classList.remove("open");
+  visitorModal.setAttribute("aria-hidden", "true");
+}
+
+async function submitVisitorName() {
+  const name = visitorNameInput.value.trim();
+
+  if (!name) {
+    visitorStatus.textContent = "اكتب اسمك أولًا.";
+    return;
+  }
+
+  visitorSubmitBtn.disabled = true;
+  visitorStatus.textContent = "جاري الدخول...";
+
+  getOrCreateVisitorId();
+
+  localStorage.setItem(VISITOR_NAME_KEY, name);
+  localStorage.setItem(VISITOR_FIRST_LOGGED_KEY, "1");
+
+  try {
+    await logVisitorEvent(name, "new_user");
+    localStorage.setItem(VISITOR_LAST_LOGGED_KEY, new Date().toISOString());
+    closeVisitorModal();
+    setStatus(`مرحبًا ${name}`);
+  } catch (error) {
+    console.error(error);
+    // لا نعطل الموقع لو فشل Google Sheets.
+    closeVisitorModal();
+    setStatus(`مرحبًا ${name} — لم يتم تسجيل الدخول في Google Sheets.`);
+  } finally {
+    visitorSubmitBtn.disabled = false;
+  }
+}
+
+async function initializeVisitorTracking() {
+  getOrCreateVisitorId();
+
+  const name = localStorage.getItem(VISITOR_NAME_KEY);
+  const firstLogged = localStorage.getItem(VISITOR_FIRST_LOGGED_KEY);
+
+  if (!name || !firstLogged) {
+    openVisitorModal();
+    return;
+  }
+
+  try {
+    await logVisitorEvent(name, "return_visit");
+    localStorage.setItem(VISITOR_LAST_LOGGED_KEY, new Date().toISOString());
+  } catch (error) {
+    console.warn("Visitor return log failed", error);
+  }
 }
 
 
@@ -724,6 +843,16 @@ copyBtn.addEventListener("click", async () => {
     setStatus("تم نسخ الجدول.");
   } catch {
     setStatus("تعذر النسخ تلقائيًا. جرّب تحديد الجدول يدويًا.");
+  }
+});
+
+
+
+visitorSubmitBtn.addEventListener("click", submitVisitorName);
+
+visitorNameInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    submitVisitorName();
   }
 });
 
@@ -1193,6 +1322,7 @@ exportPngBtn.addEventListener("click", async () => {
 (function initDefaults() {
   loadTheme();
   applySuggestionsState(suggestionsEnabled());
+  initializeVisitorTracking();
   const loaded = loadState();
   if (!loaded) {
     const today = new Date();

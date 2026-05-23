@@ -148,3 +148,19 @@
   - إضافة زر إغلاق واضح.
   - تحسين ارتفاع القائمة والتمرير الداخلي.
 - إخفاء أدوات التحكم من نسخة التصدير، مثل حذف الأعمدة وسحب الأعمدة.
+
+
+## تحديث v13
+
+- إضافة نافذة أول دخول تسأل المستخدم عن اسمه.
+- حفظ الاسم ومعرّف الجهاز داخل `localStorage`.
+- إرسال أول دخول إلى Google Sheets كـ `new_user`.
+- إرسال الزيارات التالية من نفس الجهاز كـ `return_visit`.
+- رابط Google Apps Script المستخدم:
+  `https://script.google.com/macros/s/AKfycbzxtPBGvhWhS7yDWdbVNq21HzeBKCX4n0hC2FzpEhV06onol3osnz0_-vZhykLDr4jZ6w/exec`
+
+### أعمدة Google Sheet المطلوبة
+
+`id | name | eventType | createdAt | userAgent`
+
+ملاحظة: `id` و `createdAt` يتم توليدهما داخل Google Apps Script، وليس من الموقع.

@@ -87,6 +87,23 @@
       </div>
     </section>
 
+    <div id="visitorModal" class="modal-backdrop visitor-backdrop" aria-hidden="true">
+      <section class="modal-card visitor-card" role="dialog" aria-modal="true" aria-labelledby="visitorModalTitle">
+        <div class="visitor-content">
+          <p class="eyebrow mini">أهلًا بك</p>
+          <h3 id="visitorModalTitle">ما اسمك؟</h3>
+          <p class="visitor-text">اكتب اسمك مرة واحدة فقط، وسنحفظه على هذا الجهاز للزيارات القادمة.</p>
+
+          <div class="visitor-form">
+            <input id="visitorNameInput" type="text" placeholder="مثال: عمر" autocomplete="name" />
+            <button id="visitorSubmitBtn" class="btn primary" type="button">دخول</button>
+          </div>
+
+          <p id="visitorStatus" class="visitor-status" aria-live="polite"></p>
+        </div>
+      </section>
+    </div>
+
     <div id="tablesModal" class="modal-backdrop" aria-hidden="true">
       <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="tablesModalTitle">
         <div class="modal-head">
