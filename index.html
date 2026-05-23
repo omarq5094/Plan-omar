@@ -57,6 +57,7 @@
         <button id="addColumnBtn" class="btn">+ إضافة عمود</button>
         <button id="rangeFillBtn" class="btn primary-soft" type="button">تعبئة نطاق</button>
         <button id="suggestionsToggleBtn" class="btn active-toggle" type="button">الاقتراحات: مفعلة</button>
+        <button id="completionToggleBtn" class="btn" type="button">نظام الإنجاز: مغلق</button>
         <button id="resetWidthsBtn" class="btn" type="button">ضبط عرض الأعمدة</button>
       </div>
 
@@ -78,6 +79,17 @@
         <div>
           <h2>الجدول</h2>
           <p>اضغط على أي خلية في الأعمدة المضافة واكتب مباشرة.</p>
+        </div>
+      </div>
+
+      <div id="completionPanel" class="completion-panel" aria-live="polite">
+        <div class="completion-info">
+          <span class="completion-label">مؤشر الإنجاز</span>
+          <strong id="completionPercent">0%</strong>
+          <span id="completionDetails">0 من 0 مهمة منجزة</span>
+        </div>
+        <div class="completion-bar" aria-hidden="true">
+          <span id="completionBarFill"></span>
         </div>
       </div>
 

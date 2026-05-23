@@ -12,6 +12,7 @@ const myTablesBtn = document.getElementById("myTablesBtn");
 const rangeFillBtn = document.getElementById("rangeFillBtn");
 const changeUserBtn = document.getElementById("changeUserBtn");
 const resetWidthsBtn = document.getElementById("resetWidthsBtn");
+const completionToggleBtn = document.getElementById("completionToggleBtn");
 const suggestionsToggleBtn = document.getElementById("suggestionsToggleBtn");
 const themeToggleBtn = document.getElementById("themeToggleBtn");
 
@@ -30,6 +31,10 @@ const closeQuickMenuBtn = document.getElementById("closeQuickMenuBtn");
 const suggestionGroups = document.getElementById("suggestionGroups");
 const suggestionOptions = document.getElementById("suggestionOptions");
 const exportHeaderTitle = document.getElementById("exportHeaderTitle");
+const completionPanel = document.getElementById("completionPanel");
+const completionPercent = document.getElementById("completionPercent");
+const completionDetails = document.getElementById("completionDetails");
+const completionBarFill = document.getElementById("completionBarFill");
 
 const tablesModal = document.getElementById("tablesModal");
 const closeTablesModalBtn = document.getElementById("closeTablesModalBtn");
@@ -57,6 +62,7 @@ const VISITOR_NAME_KEY = "jadwalak_visitor_name_v1";
 const VISITOR_ID_KEY = "jadwalak_visitor_id_v1";
 const VISITOR_FIRST_LOGGED_KEY = "jadwalak_visitor_first_logged_v1";
 const VISITOR_LAST_LOGGED_KEY = "jadwalak_visitor_last_logged_v1";
+const COMPLETION_KEY = "jadwalak_completion_enabled_v1";
 const GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzxtPBGvhWhS7yDWdbVNq21HzeBKCX4n0hC2FzpEhV06onol3osnz0_-vZhykLDr4jZ6w/exec";
 const RETURN_VISIT_LOG_INTERVAL_MS = 30 * 60 * 1000;
 const THEME_KEY = "jadwalak_theme_v1";
@@ -79,6 +85,8 @@ let visibleBaseColumns = {
   gregorian: true,
   hijri: true
 };
+
+let completionEnabled = false;
 
 const baseColumnMap = {
   weekday: { id: "weekday", name: "اليوم", fixed: true },
@@ -240,6 +248,16 @@ function createDateRows(start, end) {
 
   return generated;
 }
+
+function normalizeRowsForCompletion() {
+  rows = rows.map((row, index) => ({
+    ...row,
+    id: row.id || `row_${index}_${row.gregorian || ""}_${row.weekday || ""}`,
+    values: row.values || {},
+    completed: row.completed || {}
+  }));
+}
+
 
 function escapeHTML(value) {
   return String(value)
@@ -442,6 +460,81 @@ async function initializeVisitorTracking() {
 }
 
 
+
+function isTrackableTask(value) {
+  const text = String(value || "").trim();
+  if (!text) return false;
+
+  const ignoredWords = ["بريك", "راحة", "اختبار"];
+  return !ignoredWords.some(word => text.includes(word));
+}
+
+function getCompletionKey(rowId, colId) {
+  return `${rowId}__${colId}`;
+}
+
+function applyCompletionState(enabled) {
+  completionEnabled = Boolean(enabled);
+  document.body.classList.toggle("completion-on", completionEnabled);
+  completionToggleBtn.classList.toggle("on", completionEnabled);
+  completionToggleBtn.textContent = completionEnabled ? "نظام الإنجاز: مفعّل" : "نظام الإنجاز: مغلق";
+  localStorage.setItem(COMPLETION_KEY, completionEnabled ? "on" : "off");
+  renderTable();
+}
+
+function getCompletionStats() {
+  normalizeRowsForCompletion();
+
+  let total = 0;
+  let done = 0;
+
+  rows.forEach(row => {
+    customColumns.forEach(col => {
+      const value = String(row.values?.[col.id] || "").trim();
+      if (!isTrackableTask(value)) return;
+
+      total += 1;
+      const key = getCompletionKey(row.id, col.id);
+      if (row.completed?.[key]) done += 1;
+    });
+  });
+
+  const percent = total === 0 ? 0 : Math.round((done / total) * 100);
+  return { total, done, percent };
+}
+
+function updateCompletionPanel() {
+  if (!completionPanel) return;
+
+  const stats = getCompletionStats();
+  completionPercent.textContent = `${stats.percent}%`;
+  completionDetails.textContent = `${stats.done} من ${stats.total} مهمة منجزة`;
+  completionBarFill.style.width = `${stats.percent}%`;
+}
+
+function toggleTaskCompletion(rowIndex, colId) {
+  normalizeRowsForCompletion();
+
+  const row = rows[rowIndex];
+  if (!row) return;
+
+  const value = String(row.values?.[colId] || "").trim();
+
+  if (!isTrackableTask(value)) {
+    setStatus("هذه الخلية لا تُحسب كمهمة.");
+    return;
+  }
+
+  const key = getCompletionKey(row.id, colId);
+  row.completed = row.completed || {};
+  row.completed[key] = !row.completed[key];
+
+  saveState();
+  renderTable();
+  updateCompletionPanel();
+}
+
+
 function getCurrentTableState() {
   return {
     startDate: startDateInput.value,
@@ -451,7 +544,8 @@ function getCurrentTableState() {
     customColumns,
     columnOrder,
     columnWidths,
-    visibleBaseColumns
+    visibleBaseColumns,
+    completionEnabled
   };
 }
 
@@ -470,6 +564,10 @@ function applyTableState(state) {
 
   columnWidths = state.columnWidths || { weekday: 85, gregorian: 105, hijri: 115 };
   visibleBaseColumns = state.visibleBaseColumns || { weekday: true, gregorian: true, hijri: true };
+  completionEnabled = Boolean(state.completionEnabled || localStorage.getItem(COMPLETION_KEY) === "on");
+  document.body.classList.toggle("completion-on", completionEnabled);
+  completionToggleBtn.classList.toggle("on", completionEnabled);
+  completionToggleBtn.textContent = completionEnabled ? "نظام الإنجاز: مفعّل" : "نظام الإنجاز: مغلق";
 
   syncToggleInputs();
   renderTable();
@@ -648,7 +746,8 @@ function saveState() {
       customColumns,
       columnOrder,
       columnWidths,
-      visibleBaseColumns
+      visibleBaseColumns,
+      completionEnabled
     })
   );
 }
@@ -665,6 +764,7 @@ function loadState() {
     exportTitleInput.value = state.exportTitle || "جدول الاختبارات";
 
     rows = Array.isArray(state.rows) ? state.rows : [];
+    normalizeRowsForCompletion();
     customColumns = Array.isArray(state.customColumns) ? state.customColumns : [];
     columnOrder = Array.isArray(state.columnOrder)
       ? state.columnOrder
@@ -672,6 +772,10 @@ function loadState() {
 
     columnWidths = state.columnWidths || columnWidths;
     visibleBaseColumns = state.visibleBaseColumns || visibleBaseColumns;
+    completionEnabled = Boolean(state.completionEnabled || localStorage.getItem(COMPLETION_KEY) === "on");
+    document.body.classList.toggle("completion-on", completionEnabled);
+    completionToggleBtn.classList.toggle("on", completionEnabled);
+    completionToggleBtn.textContent = completionEnabled ? "نظام الإنجاز: مفعّل" : "نظام الإنجاز: مغلق";
 
     // v7 normalization.
     if (columnWidths.weekday > 120) columnWidths.weekday = 85;
@@ -693,6 +797,7 @@ function syncToggleInputs() {
 }
 
 function renderTable() {
+  normalizeRowsForCompletion();
   exportHeaderTitle.textContent = exportTitleInput.value.trim() || "جدول الاختبارات";
   renderColGroup();
 
@@ -721,12 +826,33 @@ function renderTable() {
 
     visibleColumns.forEach((col) => {
       const td = document.createElement("td");
-      td.textContent = getCellValue(row, col.id);
+      const cellValue = getCellValue(row, col.id);
 
-      if (!col.fixed) {
-        td.contentEditable = "true";
-        td.dataset.rowIndex = rowIndex;
-        td.dataset.colId = col.id;
+      if (!col.fixed && completionEnabled) {
+        const key = getCompletionKey(row.id, col.id);
+        const isDone = Boolean(row.completed?.[key]);
+        const isTask = isTrackableTask(cellValue);
+
+        if (isDone) td.classList.add("task-done");
+
+        td.innerHTML = `
+          <div class="completion-cell">
+            <button class="complete-check ${isDone ? "done" : ""}" type="button" data-row-index="${rowIndex}" data-col-id="${col.id}" title="تحديد الإنجاز">${isDone ? "✓" : "○"}</button>
+            <span class="completion-text" contenteditable="true" data-row-index="${rowIndex}" data-col-id="${col.id}">${escapeHTML(cellValue)}</span>
+          </div>
+        `;
+
+        if (!isTask) {
+          td.querySelector(".complete-check").style.opacity = "0.35";
+        }
+      } else {
+        td.textContent = cellValue;
+
+        if (!col.fixed) {
+          td.contentEditable = "true";
+          td.dataset.rowIndex = rowIndex;
+          td.dataset.colId = col.id;
+        }
       }
 
       tr.appendChild(td);
@@ -774,6 +900,7 @@ generateBtn.addEventListener("click", () => {
   }
 
   rows = createDateRows(start, end);
+  normalizeRowsForCompletion();
   renderTable();
   saveState();
   setStatus("تم إنشاء الجدول بنجاح.");
@@ -833,16 +960,16 @@ tableHead.addEventListener("click", (event) => {
 });
 
 tableBody.addEventListener("input", (event) => {
-  const cell = event.target.closest("td[contenteditable='true']");
+  const cell = getEditableSuggestionTarget(event.target);
   if (!cell) return;
 
-  const rowIndex = Number(cell.dataset.rowIndex);
-  const colId = cell.dataset.colId;
+  const meta = getEditableMeta(cell);
+  if (!meta || !rows[meta.rowIndex]) return;
 
-  if (!rows[rowIndex]) return;
+  const nextValue = cell.textContent.trim();
+  setEditableValue(cell, nextValue);
 
-  rows[rowIndex].values = rows[rowIndex].values || {};
-  rows[rowIndex].values[colId] = cell.textContent.trim();
+  updateCompletionPanel();
   saveState();
 });
 
@@ -1077,16 +1204,22 @@ suggestionsToggleBtn.addEventListener("click", () => {
   applySuggestionsState(!suggestionsEnabled());
 });
 
+completionToggleBtn.addEventListener("click", () => {
+  applyCompletionState(!completionEnabled);
+});
+
 [showWeekdayToggle, showGregorianToggle, showHijriToggle].forEach(toggle => {
   toggle.addEventListener("change", () => {
-    visibleBaseColumns = {
+    visibleBaseColumns,
+    completionEnabled = {
       weekday: showWeekdayToggle.checked,
       gregorian: showGregorianToggle.checked,
       hijri: showHijriToggle.checked
     };
 
     if (!visibleBaseColumns.weekday && !visibleBaseColumns.gregorian && !visibleBaseColumns.hijri && customColumns.length === 0) {
-      visibleBaseColumns.weekday = true;
+      visibleBaseColumns,
+    completionEnabled.weekday = true;
       showWeekdayToggle.checked = true;
       setStatus("لا يمكن إخفاء كل الأعمدة بدون إضافة عمود مخصص.");
     }
@@ -1206,6 +1339,39 @@ tableHead.addEventListener("dragend", () => {
 
 
 
+
+function getEditableSuggestionTarget(target) {
+  return target.closest(".completion-text[contenteditable='true'], td[contenteditable='true']");
+}
+
+function getEditableMeta(editable) {
+  if (!editable) return null;
+
+  const rowIndex = Number(editable.dataset.rowIndex);
+  const colId = editable.dataset.colId;
+
+  if (!Number.isFinite(rowIndex) || !colId) return null;
+
+  return { rowIndex, colId };
+}
+
+function setEditableValue(editable, value) {
+  const meta = getEditableMeta(editable);
+  if (!meta || !rows[meta.rowIndex]) return false;
+
+  normalizeRowsForCompletion();
+
+  rows[meta.rowIndex].values = rows[meta.rowIndex].values || {};
+  rows[meta.rowIndex].values[meta.colId] = value;
+
+  if (!isTrackableTask(value)) {
+    const key = getCompletionKey(rows[meta.rowIndex].id, meta.colId);
+    if (rows[meta.rowIndex].completed) delete rows[meta.rowIndex].completed[key];
+  }
+
+  return true;
+}
+
 function renderSuggestionMenu() {
   if (!suggestionGroups || !suggestionOptions) return;
 
@@ -1249,6 +1415,8 @@ function hideQuickMenu() {
 }
 
 function showQuickMenuForCell(cell) {
+  if (!suggestionsEnabled()) return;
+
   activeEditableCell = cell;
   renderSuggestionMenu();
 
@@ -1278,16 +1446,30 @@ function showQuickMenuForCell(cell) {
 }
 
 tableBody.addEventListener("focusin", (event) => {
-  const cell = event.target.closest("td[contenteditable='true']");
+  const cell = getEditableSuggestionTarget(event.target);
   if (!cell || !suggestionsEnabled()) return;
   showQuickMenuForCell(cell);
 });
 
 tableBody.addEventListener("click", (event) => {
-  const cell = event.target.closest("td[contenteditable='true']");
+  if (event.target.closest(".complete-check")) return;
+
+  const cell = getEditableSuggestionTarget(event.target);
   if (!cell || !suggestionsEnabled()) return;
   showQuickMenuForCell(cell);
 });
+
+
+tableBody.addEventListener("click", (event) => {
+  const check = event.target.closest(".complete-check");
+  if (!check) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  toggleTaskCompletion(Number(check.dataset.rowIndex), check.dataset.colId);
+});
+
 
 quickMenu.addEventListener("mousedown", (event) => {
   event.preventDefault();
@@ -1317,24 +1499,20 @@ quickMenu.addEventListener("click", (event) => {
   if (!button || !activeEditableCell || !suggestionsEnabled()) return;
 
   const preset = button.dataset.preset;
-  activeEditableCell.textContent = preset;
+  const applied = setEditableValue(activeEditableCell, preset);
 
-  const rowIndex = Number(activeEditableCell.dataset.rowIndex);
-  const colId = activeEditableCell.dataset.colId;
-
-  if (rows[rowIndex]) {
-    rows[rowIndex].values = rows[rowIndex].values || {};
-    rows[rowIndex].values[colId] = preset;
+  if (applied) {
     saveState();
+    renderTable();
+    updateCompletionPanel();
   }
 
   hideQuickMenu();
-  activeEditableCell.focus();
 });
 
 document.addEventListener("click", (event) => {
   if (event.target.closest("#quickMenu")) return;
-  if (event.target.closest("td[contenteditable='true']")) return;
+  if (event.target.closest(".completion-text[contenteditable='true'], td[contenteditable='true']")) return;
   hideQuickMenu();
 });
 
@@ -1369,7 +1547,9 @@ function buildExportClone() {
 
   const header = document.createElement("div");
   header.className = "export-header";
-  header.innerHTML = `<h3>${escapeHTML(exportTitleInput.value.trim() || "جدول الاختبارات")}</h3>`;
+  const stats = getCompletionStats();
+  const completionLine = completionEnabled ? `<div style="font-weight:800;margin-top:6px;">إنجازك: ${stats.percent}% — ${stats.done} من ${stats.total} مهمة منجزة</div>` : "";
+  header.innerHTML = `<h3>${escapeHTML(exportTitleInput.value.trim() || "جدول الاختبارات")}</h3>${completionLine}`;
   wrapper.appendChild(header);
 
   const table = document.createElement("table");
@@ -1474,6 +1654,10 @@ exportPngBtn.addEventListener("click", async () => {
 (function initDefaults() {
   loadTheme();
   applySuggestionsState(suggestionsEnabled());
+  completionEnabled = localStorage.getItem(COMPLETION_KEY) === "on";
+  document.body.classList.toggle("completion-on", completionEnabled);
+  completionToggleBtn.classList.toggle("on", completionEnabled);
+  completionToggleBtn.textContent = completionEnabled ? "نظام الإنجاز: مفعّل" : "نظام الإنجاز: مغلق";
   initializeVisitorTracking();
   const loaded = loadState();
   if (!loaded) {
