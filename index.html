@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>جدولك | مولّد الجداول الذكي</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">مولّد جداول مرن</p>
+        <h1>جدولك</h1>
+        <p class="subtitle">
+          أنشئ جدولًا زمنيًا نظيفًا خلال ثوانٍ: حدد المدة، أضف الأعمدة التي تحتاجها، ثم صدّر النتيجة كصورة جاهزة للمشاركة.
+        </p>
+      </div>
+</section>
+
+    <section class="controls">
+      <div class="field title-field">
+        <label for="exportTitle">عنوان الصورة</label>
+        <input id="exportTitle" type="text" value="جدول الاختبارات" placeholder="مثال: جدول الاختبارات" />
+      </div>
+
+      <div class="field">
+        <label for="startDate">تاريخ البداية</label>
+        <input id="startDate" type="date" />
+      </div>
+
+      <div class="field">
+        <label for="endDate">تاريخ النهاية</label>
+        <input id="endDate" type="date" />
+      </div>
+
+      <div class="toggles" aria-label="إعدادات عرض الأعمدة الأساسية">
+        <label class="check"><input id="showWeekdayToggle" type="checkbox" checked /> اليوم</label>
+        <label class="check"><input id="showGregorianToggle" type="checkbox" checked /> الميلادي</label>
+        <label class="check"><input id="showHijriToggle" type="checkbox" checked /> الهجري</label>
+      </div>
+
+      <button id="generateBtn" class="btn primary">إنشاء الجدول</button>
+      <button id="themeToggleBtn" class="btn theme-btn" type="button">🌙 دارك مود</button>
+      <button id="addColumnBtn" class="btn">+ إضافة عمود</button>
+      <button id="suggestionsToggleBtn" class="btn active-toggle" type="button">الاقتراحات: مفعلة</button>
+      <button id="resetWidthsBtn" class="btn" type="button">ضبط عرض الأعمدة</button>
+      <button id="exportPngBtn" class="btn">تصدير صورة PNG</button>
+      <button id="copyBtn" class="btn">نسخ الجدول</button>
+      <button id="saveTableBtn" class="btn primary-soft" type="button">حفظ الجدول</button>
+      <button id="myTablesBtn" class="btn" type="button">جداولي</button>
+      <button id="resetBtn" class="btn danger">مسح الكل</button>
+    </section>
+
+    <section id="status" class="status" aria-live="polite"></section>
+
+    <section class="table-shell">
+      <div class="table-top">
+        <div>
+          <h2>الجدول</h2>
+          <p>اضغط على أي خلية في الأعمدة المضافة واكتب مباشرة.</p>
+        </div>
+      </div>
+
+      <div id="captureArea" class="capture-area">
+        <div id="exportHeader" class="export-header">
+          <h3 id="exportHeaderTitle">جدول الاختبارات</h3>
+        </div>
+        <table id="scheduleTable">
+          <colgroup id="tableColGroup"></colgroup>
+          <thead>
+            <tr id="tableHead">
+              <th>اليوم</th>
+              <th>التاريخ الميلادي</th>
+              <th>التاريخ الهجري</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            <tr>
+              <td colspan="3" class="empty">
+                اختر المدة من الأعلى ثم اضغط إنشاء الجدول.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div id="exportFooter" class="export-footer">Made with omar al ghrman</div>
+      </div>
+    </section>
+
+    <div id="tablesModal" class="modal-backdrop" aria-hidden="true">
+      <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="tablesModalTitle">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow mini">إدارة الجداول</p>
+            <h3 id="tablesModalTitle">جداولي</h3>
+          </div>
+          <button id="closeTablesModalBtn" class="icon-btn" type="button" aria-label="إغلاق">×</button>
+        </div>
+
+        <div class="save-panel">
+          <label for="tableNameInput">اسم الجدول</label>
+          <div class="save-row">
+            <input id="tableNameInput" type="text" placeholder="مثال: اختبارات الترم" />
+            <button id="saveNamedTableBtn" class="btn primary" type="button">حفظ</button>
+          </div>
+        </div>
+
+        <div class="tables-list" id="tablesList"></div>
+      </section>
+    </div>
+
+    <div id="quickMenu" class="quick-menu grouped-menu" role="menu" aria-hidden="true">
+      <div class="quick-menu-top">
+        <strong>الاقتراحات</strong>
+        <button id="inlineSuggestionsToggle" type="button" class="mini-toggle">مفعلة</button>
+      </div>
+
+      <div class="quick-menu-grid">
+        <div class="suggestion-groups" id="suggestionGroups" aria-label="مجموعات الاقتراحات"></div>
+        <div class="suggestion-options" id="suggestionOptions" aria-label="خيارات الاقتراحات"></div>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
